@@ -14,8 +14,15 @@ MONGO_URI = os.getenv("MONGO_URI")
 client = MongoClient(MONGO_URI)
 
 app = Flask(__name__)
-model = YOLO("/Users/eres/Downloads/imagens-semen/runs/detect/train/weights/best.pt")
+model = YOLO("modelo-treinado.pt")
 
+# Requisição:
+# {
+#     "nome": "vanessa", 
+#     "email": "vanessa.lima06@aluno.ifce.edu.br",
+#     "instituicao": "ifce",
+#     "cargo": "estudante"
+# }
 @app.route('/cadastro', methods=['POST'])
 def cadastro():
     try:
@@ -27,24 +34,44 @@ def cadastro():
 
         db = client['tcc-app-aila']
         collection = db['usuarios']
-        
+
+        # Verificar se o usuário já existe pelo e-mail
+        usuario_existente = collection.find_one({"email": email})
+
         senha = gerar_hash(senha)
-        
-        document = {
-            "nome": usuario.nome, 
-            "email": usuario.email, 
-            "instituicao": usuario.instituicao,
-            "cargo": usuario.cargo,
-            "senha": senha
+
+        # Se o usuário já existir, atualize o documento. Caso contrário, insira um novo
+        if usuario_existente:
+            update_result = collection.update_one(
+                {"email": email},  # Filtro para encontrar o usuário
+                {"$set": {
+                    "nome": usuario.nome, 
+                    "instituicao": usuario.instituicao,
+                    "cargo": usuario.cargo,
+                    "senha": senha
+                }}
+            )
+            print(f"Documento atualizado: {update_result.modified_count} documento(s) modificado(s)")
+        else:
+            document = {
+                "nome": usuario.nome, 
+                "email": usuario.email, 
+                "instituicao": usuario.instituicao,
+                "cargo": usuario.cargo,
+                "senha": senha
             }
-        
-        insert_result = collection.insert_one(document)
-        print(f"Documento inserido com ID: {insert_result.inserted_id}")
-        
-        jwt = criar_jwt(usuario.tojson())
-        return jsonify({"AcessToken":jwt})
-    except Exception as e:  
+            insert_result = collection.insert_one(document)
+            print(f"Documento inserido com ID: {insert_result.inserted_id}")
+
+        usuario_json = usuario.tojson()
+        print(f"Usuario JSON: {usuario_json}")
+
+        jwt = criar_jwt(usuario_json)
+        return jsonify({"AcessToken": jwt})
+
+    except Exception as e:
         return jsonify({"message": str(e)}), 500
+
         
 @app.route('/login', methods=['GET'])
 def login():
@@ -131,6 +158,12 @@ def analise():
         detections.append(detection)
     
     return jsonify(detections)
+
+def response_with_message(message, status_code=200):
+    return jsonify({
+        "message": message,
+        "status_code": status_code
+    }), status_code
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=3000)
