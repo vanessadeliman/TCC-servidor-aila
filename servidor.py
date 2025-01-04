@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from waitress import serve
 from ultralytics import YOLO
 import io
 from PIL import Image
@@ -8,10 +9,28 @@ from dotenv import load_dotenv
 from verificacoes import *
 from modelos.usuario import *
 from functools import wraps
+import requests
 
 load_dotenv()
 MONGO_URI = os.getenv("MONGO_URI")
+MODEL_URL = os.getenv("MODEL_URL")
+MODEL_PATH = os.getenv("MODEL_PATH")
 client = MongoClient(MONGO_URI)
+
+def download_model():
+    if not os.path.exists(MODEL_PATH):
+        print("Baixando o modelo...")
+        response = requests.get(MODEL_URL, stream=True)
+        if response.status_code == 200:
+            with open(MODEL_PATH, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            print("Modelo baixado com sucesso!")
+        else:
+            print(f"Falha ao baixar o modelo. Código de status: {response.status_code}")
+
+# Baixa o modelo ao iniciar o servidor
+download_model()
 
 app = Flask(__name__)
 model = YOLO("modelo-treinado.pt")
@@ -166,4 +185,4 @@ def response_with_message(message, status_code=200):
     }), status_code
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=3000)
+    serve(app, host='0.0.0.0', port=3000)
