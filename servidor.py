@@ -145,38 +145,42 @@ def token_necessario(func):
 @app.route('/analise', methods=['POST'])
 @token_necessario  
 def analise():
-    # Receber a imagem do cliente
-    img_file = request.files['image']
-    img_bytes = img_file.read()
+    try:
+        # Receber a imagem do cliente
+        img_file = request.files['image']
+        img_bytes = img_file.read()
+        
+        # Abrir a imagem com PIL
+        img = Image.open(io.BytesIO(img_bytes))
+        
+        # Realizar a inferência
+        results = model(img)
+        
+        # Acessar os resultados diretamente
+        boxes = results[0].boxes.xyxy  # Coordenadas das caixas
+        confidences = results[0].boxes.conf  # Confiança de cada detecção
+        classes = results[0].boxes.cls  # Classes das detecções
+        labels = results[0].names  # Mapeia os índices de classe para nomes
     
-    # Abrir a imagem com PIL
-    img = Image.open(io.BytesIO(img_bytes))
-    
-    # Realizar a inferência
-    results = model(img)
-    
-    # Acessar os resultados diretamente
-    boxes = results[0].boxes.xyxy  # Coordenadas das caixas
-    confidences = results[0].boxes.conf  # Confiança de cada detecção
-    classes = results[0].boxes.cls  # Classes das detecções
-    labels = results[0].names  # Mapeia os índices de classe para nomes
-  
-    detections = []
-    for i, box in enumerate(boxes):  
-        detection = {
-            "nome": labels[int(classes[i])], 
-            "indice": int(classes[i]), 
-            "confianca": float(confidences[i]),  # Confiança
-            "caixa": {
-                "x1": float(box[0]),  
-                "y1": float(box[1]),  
-                "x2": float(box[2]),  
-                "y2": float(box[3])  
+        detections = []
+        for i, box in enumerate(boxes):  
+            detection = {
+                "nome": labels[int(classes[i])], 
+                "indice": int(classes[i]), 
+                "confianca": float(confidences[i]),  # Confiança
+                "caixa": {
+                    "x1": float(box[0]),  
+                    "y1": float(box[1]),  
+                    "x2": float(box[2]),  
+                    "y2": float(box[3])  
+                }
             }
-        }
-        detections.append(detection)
-    
-    return jsonify(detections)
+            detections.append(detection)
+        
+        return jsonify(detections)
+    except Exception as e:
+        print(f"Erro durante o processamento da imagem: {str(e)}")
+        return jsonify({"message": "Erro no servidor", "error": str(e)}), 500
 
 def response_with_message(message, status_code=200):
     return jsonify({
