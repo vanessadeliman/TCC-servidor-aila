@@ -181,6 +181,11 @@ def analise():
     except Exception as e:
         print(f"Erro durante o processamento da imagem: {str(e)}")
         return jsonify({"message": "Erro no servidor", "error": str(e)}), 500
+    
+@app.route('/teste', methods=['GET'])
+def testeConexao():
+    return jsonify({200:"sucesso"}), 200
+
 
 def response_with_message(message, status_code=200):
     return jsonify({
@@ -189,4 +194,4 @@ def response_with_message(message, status_code=200):
     }), status_code
 
 if __name__ == '__main__':
-    serve(app, host='0.0.0.0', port=3000)
+    serve(app, host='0.0.0.0', port=5000)
