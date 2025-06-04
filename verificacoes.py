@@ -16,14 +16,18 @@ def decode_basic_auth(auth_header):
         raise ValueError("Cabeçalho de autorização inválido")
     
 def gerar_hash(senha):
-    senha_bytes = senha.encode('utf-8')
-    salt = bcrypt.gensalt()
-    senha_hash = bcrypt.hashpw(senha_bytes, salt)
-    return senha_hash
+    hashed_password = bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt())
+    return hashed_password.decode('utf-8')
 
-def verificar_senha(senha, senha_hash):
-    senha_bytes = senha.encode('utf-8')
-    return bcrypt.checkpw(senha_bytes, senha_hash)
+def verificar_senha(senha_fornecida, senha_hash_armazenada):
+    if senha_hash_armazenada is None:
+        return False
+    try:
+        return bcrypt.checkpw(senha_fornecida.encode('utf-8'), senha_hash_armazenada.encode('utf-8'))
+    except Exception as e:
+        print(f"Erro na verificação de senha: {e}")
+        return False
+
 
 def criar_jwt(dados, expiracao_horas=24):
     try:

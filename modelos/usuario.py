@@ -1,19 +1,26 @@
+# modelos/usuario.py
 class Usuario:
-    def __init__(self, nome, email, instituicao, cargo):
+    def __init__(self, nome, email, instituicao, senha):
         self.nome = nome
         self.email = email
         self.instituicao = instituicao
-        self.cargo = cargo
+        self.senha = senha
 
     @classmethod
     def from_json(cls, data):
+        nome = data.get('nome')
+        email = data.get('email')
+        instituicao = data.get('instituicao')
+        senha = data.get('senha')
 
-        return cls(
-            nome=data.get("nome"),
-            email=data.get("email"),
-            instituicao=data.get("instituicao"),
-            cargo=data.get("cargo"),
-        )
+        if not all([nome, email, senha]): 
+            raise ValueError("Nome, Email e senha são campos obrigatórios para o usuário.")
+
+        return cls(nome, email, instituicao, senha)
 
     def tojson(self):
-        return {"nome":self.nome, "email":self.email, "instituicao":self.instituicao, "cargo":self.cargo}
+        return {
+            "nome": self.nome,
+            "email": self.email,
+            "instituicao": self.instituicao
+        }
