@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  servidor:
+    build: .
+    command: ["python", "servidor.py"]
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./TCC-servidor-aila:/app
+    working_dir: /app
+    environment:
+      MODEL_URL: ${MODEL_URL}
+      MODEL_PATH: ${MODEL_PATH}

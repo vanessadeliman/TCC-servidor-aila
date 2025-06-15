@@ -1,18 +1,15 @@
-FROM python:3.9-slim
+FROM python:3.9-slim-buster
 
-# Instalar dependências do sistema
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
-    libglib2.0-0
-
-# Definir o diretório de trabalho
 WORKDIR /app
 
-# Copiar arquivos para o contêiner
-COPY . /app
+COPY requirements.txt requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Instalar dependências do Python
-RUN pip install --upgrade pip && pip install -r requirements.txt
+COPY servidor.py servidor.py
 
-# Comando padrão
+COPY modelo_treinado/ modelo_treinado/
+COPY routes/ routes/
+
+EXPOSE 5000
+
 CMD ["python", "servidor.py"]
