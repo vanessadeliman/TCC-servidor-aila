@@ -41,7 +41,7 @@ Para rodar o servidor localmente com Docker Compose, siga os passos abaixo:
     # .env
 
     # Variáveis para o Modelo de IA
-    MODEL_URL=https://drive.usercontent.google.com/u/0/uc?id=1ltUkznP_3Y0jR1Hd4kqFIZXA8pn9NTkd&export=download # Ou a URL real do seu modelo
+    MODEL_URL=https://drive.google.com/uc?export=download&id=1AHIswPP3LAirL9FNhmxjxqa0EYY4p0Eo # Ou a URL real do seu modelo
     MODEL_PATH=modelo-treinado.pt # Nome do arquivo do modelo dentro do contêiner
 
     **Importante:** O `MODEL_PATH` deve corresponder ao nome do arquivo que será criado ou copiado para `/app` no contêiner.

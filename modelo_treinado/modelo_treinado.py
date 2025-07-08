@@ -3,8 +3,8 @@ import os
 import requests
 from ultralytics import YOLO
 
-MODEL_URL = os.getenv("MODEL_URL")
-MODEL_PATH = os.getenv("MODEL_PATH")
+MODEL_URL = os.getenv("MODEL_URL", "https://drive.google.com/uc?export=download&id=1AHIswPP3LAirL9FNhmxjxqa0EYY4p0Eo")
+MODEL_PATH = os.getenv("MODEL_PATH", "modelo-treinado.pt")
 
 model = None
 
