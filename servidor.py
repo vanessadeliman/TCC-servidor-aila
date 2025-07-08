@@ -1,197 +1,28 @@
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify
 from waitress import serve
-from ultralytics import YOLO
-import io
-from PIL import Image
-from pymongo import MongoClient
-import os
 from dotenv import load_dotenv
-from verificacoes import *
-from modelos.usuario import *
-from functools import wraps
-import requests
 
+from modelo_treinado.modelo_treinado import download_model
+from routes.analise import analise as analise_route_logic 
+
+print('Iniciando variáveis de ambiente...')
 load_dotenv()
-MONGO_URI = os.getenv("MONGO_URI")
-MODEL_URL = os.getenv("MODEL_URL")
-MODEL_PATH = os.getenv("MODEL_PATH")
-client = MongoClient(MONGO_URI)
 
-def download_model():
-    if not os.path.exists(MODEL_PATH):
-        print("Baixando o modelo...")
-        response = requests.get(MODEL_URL, stream=True)
-        if response.status_code == 200:
-            with open(MODEL_PATH, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            print("Modelo baixado com sucesso!")
-        else:
-            print(f"Falha ao baixar o modelo. Código de status: {response.status_code}")
+print('Downloading e carregando o modelo treinado...')
 
-# Baixa o modelo ao iniciar o servidor
 download_model()
 
 app = Flask(__name__)
-model = YOLO("modelo-treinado.pt")
 
-# Requisição:
-# {
-#     "nome": "vanessa", 
-#     "email": "vanessa.lima06@aluno.ifce.edu.br",
-#     "instituicao": "ifce",
-#     "cargo": "estudante"
-# }
-@app.route('/cadastro', methods=['POST'])
-def cadastro():
-    try:
-        auth_header = request.headers.get('Authorization')
-        email, senha = decode_basic_auth(auth_header)
-        body = request.get_json()
-        body['email'] = email
-        usuario = Usuario.from_json(body)
-
-        db = client['tcc-app-aila']
-        collection = db['usuarios']
-
-        # Verificar se o usuário já existe pelo e-mail
-        usuario_existente = collection.find_one({"email": email})
-
-        senha = gerar_hash(senha)
-
-        # Se o usuário já existir, atualize o documento. Caso contrário, insira um novo
-        if usuario_existente:
-            update_result = collection.update_one(
-                {"email": email},  # Filtro para encontrar o usuário
-                {"$set": {
-                    "nome": usuario.nome, 
-                    "instituicao": usuario.instituicao,
-                    "cargo": usuario.cargo,
-                    "senha": senha
-                }}
-            )
-            print(f"Documento atualizado: {update_result.modified_count} documento(s) modificado(s)")
-        else:
-            document = {
-                "nome": usuario.nome, 
-                "email": usuario.email, 
-                "instituicao": usuario.instituicao,
-                "cargo": usuario.cargo,
-                "senha": senha
-            }
-            insert_result = collection.insert_one(document)
-            print(f"Documento inserido com ID: {insert_result.inserted_id}")
-
-        usuario_json = usuario.tojson()
-        print(f"Usuario JSON: {usuario_json}")
-
-        jwt = criar_jwt(usuario_json)
-        return jsonify({"AcessToken": jwt})
-
-    except Exception as e:
-        return jsonify({"message": str(e)}), 500
-
-        
-@app.route('/login', methods=['GET'])
-def login():
-    try:
-        auth_header = request.headers.get('Authorization')
-        email, senha = decode_basic_auth(auth_header)
-        
-        db = client['tcc-app-aila']
-        collection = db['usuarios']
-        
-        usuario = collection.find_one({"email": email})
-
-        if usuario:
-            if verificar_senha(senha, usuario["senha"]):
-                usuario_json = {
-                    "nome": usuario.get("nome"),
-                    "instituicao": usuario.get("instituicao"),
-                    "cargo": usuario.get("cargo")
-                }
-                
-                # Gerando o token
-                jwt = criar_jwt(usuario_json) 
-                usuario_json["AcessToken"] = jwt
-
-                return jsonify(usuario_json), 200
-            else:
-                return response_with_message("Senha inválida", 401)
-        else:
-            return response_with_message("Usuário não encontrado", 404)
-        
-    except Exception as e:
-        return jsonify({"message": str(e)}), 500
-    
-# Decorador para proteger as rotas
-def token_necessario(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({"message": "Token não fornecido"}), 403 
-        
-        try:
-            token = auth_header.split(" ")[1]
-            payload = validar_jwt(token)
-            request.user_data = payload 
-        except Exception as e:
-            return jsonify({"message": str(e)}), 401  
-
-        return func(*args, **kwargs) 
-    return wrapper
-
-@app.route('/analise', methods=['POST'])
-@token_necessario  
-def analise():
-    try:
-        # Receber a imagem do cliente
-        img_file = request.files['image']
-        img_bytes = img_file.read()
-        
-        # Abrir a imagem com PIL
-        img = Image.open(io.BytesIO(img_bytes))
-        
-        # Realizar a inferência
-        results = model(img)
-        
-        # Acessar os resultados diretamente
-        boxes = results[0].boxes.xyxy  # Coordenadas das caixas
-        confidences = results[0].boxes.conf  # Confiança de cada detecção
-        classes = results[0].boxes.cls  # Classes das detecções
-        labels = results[0].names  # Mapeia os índices de classe para nomes
-    
-        detections = []
-        for i, box in enumerate(boxes):  
-            detection = {
-                "nome": labels[int(classes[i])], 
-                "indice": int(classes[i]), 
-                "confianca": float(confidences[i]),  # Confiança
-                "caixa": {
-                    "x1": float(box[0]),  
-                    "y1": float(box[1]),  
-                    "x2": float(box[2]),  
-                    "y2": float(box[3])  
-                }
-            }
-            detections.append(detection)
-        
-        return jsonify(detections)
-    except Exception as e:
-        print(f"Erro durante o processamento da imagem: {str(e)}")
-        return jsonify({"message": "Erro no servidor", "error": str(e)}), 500
-    
 @app.route('/teste', methods=['GET'])
 def testeConexao():
-    return jsonify({200:"sucesso"}), 200
+    print('Conectado com sucesso!')
+    return jsonify({"message": "Conexão bem-sucedida!", "status_code": 200}), 200
 
-
-def response_with_message(message, status_code=200):
-    return jsonify({
-        "message": message,
-        "status_code": status_code
-    }), status_code
+@app.route('/analise', methods=['POST'])
+def analise_endpoint(*args, **kwargs):
+    return analise_route_logic(*args, **kwargs)
 
 if __name__ == '__main__':
-    serve(app, host='0.0.0.0', port=5000)
+    print('Servidor Flask iniciado na porta 5001...')
+    serve(app, host='0.0.0.0', port=5001)
